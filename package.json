@@ -1,0 +1,43 @@
+{
+  "name": "storytime",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "nuxt build",
+    "dev": "nuxt dev",
+    "preview": "nuxt preview",
+    "start": "node .output/server/index.mjs",
+    "setup": "bash scripts/setup.sh",
+    "postinstall": "nuxt prepare",
+    "lint": "eslint .",
+    "typecheck": "nuxt typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "dependencies": {
+    "@iconify-json/lucide": "^1.2.114",
+    "@iconify-json/simple-icons": "^1.2.86",
+    "@nuxt/ui": "^4.9.0",
+    "better-sqlite3": "^11.10.0",
+    "gray-matter": "^4.0.3",
+    "imapflow": "^1.0.193",
+    "mailparser": "^3.7.4",
+    "nuxt": "^4.4.8",
+    "pdf-lib": "^1.17.1",
+    "sharp": "^0.34.3",
+    "sortablejs": "^1.15.6",
+    "tailwindcss": "^4.3.1"
+  },
+  "devDependencies": {
+    "@nuxt/eslint": "^1.16.0",
+    "@nuxt/test-utils": "^3.19.2",
+    "@types/better-sqlite3": "^7.6.13",
+    "@types/sortablejs": "^1.15.8",
+    "@vue/test-utils": "^2.4.6",
+    "eslint": "^10.5.0",
+    "happy-dom": "^18.0.1",
+    "typescript": "^6.0.3",
+    "vitest": "^3.2.4",
+    "vue-tsc": "^3.3.5"
+  }
+}
