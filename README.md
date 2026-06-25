@@ -17,7 +17,7 @@ bash scripts/setup.sh
    - Double-click **Start Storytime.command**, or
    - Run `bash scripts/start.sh`
 
-The app opens at `http://localhost:3000`.
+The app opens at `http://localhost:3200`.
 
 ## What it does
 

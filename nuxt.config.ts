@@ -13,9 +13,14 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2025-01-15',
 
+  devServer: {
+    port: 3200
+  },
+
   nitro: {
     externals: {
-      inline: ['better-sqlite3']
+      // Native modules must not be bundled — Nitro copies them to .output/server/node_modules
+      external: ['better-sqlite3', 'sharp']
     }
   },
 
