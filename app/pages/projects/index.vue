@@ -7,9 +7,10 @@ interface ProjectSummary {
   status: string
   imageCount: number
   updatedAt: string
+  pendingReview: boolean
 }
 
-const { data, status } = await useFetch<{ projects: ProjectSummary[] }>('/api/projects')
+const { data, status, refresh } = await useFetch<{ projects: ProjectSummary[] }>('/api/projects')
 
 const projects = computed(() => data.value?.projects ?? [])
 
@@ -56,17 +57,24 @@ function formatDate(value: string) {
             <AppStatusBadge :status="project.status" />
           </div>
           <p class="text-sm text-muted">
-            {{ project.imageCount }} image{{ project.imageCount === 1 ? '' : 's' }}
+            <span v-if="project.pendingReview">Awaiting image review</span>
+            <span v-else>{{ project.imageCount }} image{{ project.imageCount === 1 ? '' : 's' }}</span>
             · Updated {{ formatDate(project.updatedAt) }}
           </p>
           <UButton
-            :to="`/projects/${project.id}`"
+            :to="project.pendingReview ? `/projects/${project.id}/review` : `/projects/${project.id}`"
             variant="soft"
             color="neutral"
             block
           >
-            Open project
+            {{ project.pendingReview ? 'Review images' : 'Open project' }}
           </UButton>
+          <AppDeleteProjectButton
+            :project-id="project.id"
+            :project-label="project.senderEmail"
+            block
+            @deleted="refresh()"
+          />
         </div>
       </UCard>
     </div>

@@ -16,14 +16,9 @@ if [ "$NODE_MAJOR" -lt 20 ]; then
   exit 1
 fi
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "ERROR: Python 3 is not installed."
-  exit 1
-fi
-
 if [ ! -f .env ]; then
   cp .env.example .env
-  echo "Created .env from .env.example — please add your Zoho IMAP credentials."
+  echo "Created .env from .env.example — please add your Zoho IMAP and OpenAI credentials."
 else
   echo ".env already exists"
 fi
@@ -39,5 +34,5 @@ npm run postinstall
 
 echo ""
 echo "Setup complete."
-echo "1. Edit .env with your Zoho IMAP email and password"
-echo "2. Double-click 'Start Storytime.command' or run: npm run build && npm start"
+echo "1. Edit .env with your Zoho IMAP credentials and OPENAI_API_KEY"
+echo "2. Double-click 'Start Storytime.command' or run: bash scripts/start.sh"

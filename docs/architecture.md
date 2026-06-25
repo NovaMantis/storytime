@@ -8,7 +8,7 @@ Storytime is a local-first Nuxt full-stack app. The browser UI talks to Nitro AP
 |-------|----------|------|
 | UI | `app/pages/`, `app/components/` | Admin panel (Inbox, Projects) |
 | API | `server/api/` | HTTP endpoints |
-| Services | `server/utils/` | Business logic (IMAP, processing, PDF) |
+| Services | `server/utils/` | Business logic (IMAP, OpenAI images, PDF) |
 | Plugins | `server/plugins/` | DB init, IMAP poller |
 | Storage | `data/` | SQLite DB, project folders, logs |
 
@@ -21,25 +21,29 @@ flowchart LR
   UI[Admin UI] --> API[Nitro API]
   API --> SQLite
   API --> FS[Project folders]
-  API --> Python[Python script]
-  Python --> FS
+  API --> OpenAI[OpenAI images.edit]
+  OpenAI --> FS
 ```
 
 ## SQLite vs markdown
 
-- **SQLite** (`data/storytime.db`) indexes emails, projects, and processing jobs for fast list views.
-- **`project.md`** in each project folder stores human-readable notes and frontmatter (status, image order).
-- On every project update, both are written. On startup, `reconcileProjectsFromDisk()` imports folders missing from SQLite.
+- **SQLite** (`data/storytime.db`) indexes emails, projects, and processing jobs. It is the source of truth for project status and image order.
+- **`project.md`** in each project folder stores human-readable notes only.
+- Notes are written to `project.md` when updated; structured fields go to SQLite only. On startup, `reconcileProjectsFromDisk()` imports folders missing from SQLite (migrating legacy frontmatter if present).
 
 ## Email processing
 
 1. Poller syncs inbox metadata into `emails` table (by `Message-ID`, idempotent).
-2. Admin selects emails and clicks Process.
+2. Admin selects emails and clicks **Process** (download + Sharp preprocess only).
 3. API validates single sender + image attachments.
 4. Attachments downloaded via IMAP → `original/`.
-5. Python script runs → `processed/`.
-6. Thumbnails generated → `thumbnails/`.
-7. Emails marked processed; project row updated.
+5. [`imagePreprocessor.ts`](server/utils/imagePreprocessor.ts) preprocesses each image → `preprocessed/*.png` (portrait, brighten, white background).
+6. Admin reviews preprocessed images and selects which need AI worksheet cleanup.
+7. **Finalize**: unselected images copy `preprocessed/` → `processed/`; selected images run OpenAI `images.edit` via [`imageProcessor.ts`](server/utils/imageProcessor.ts).
+8. Thumbnails generated → `thumbnails/`.
+9. Emails marked processed; project row updated.
+
+Projects with a pending review job cannot accept new Process runs until finalize completes.
 
 ## Error reporting
 
@@ -51,6 +55,6 @@ flowchart LR
 
 ## Phase 2 hooks
 
-- Swap `PYTHON_SCRIPT_PATH` for the real image pipeline
 - Replace `pdfGenerator.ts` implementation without changing the UI
-- `processing_jobs` table supports async processing if Python gets slow
+- `processing_jobs` table supports async processing if OpenAI calls get slow
+- Customize prompt/model via `OPENAI_IMAGE_*` env vars

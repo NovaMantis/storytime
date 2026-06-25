@@ -23,6 +23,7 @@
     "imapflow": "^1.0.193",
     "mailparser": "^3.7.4",
     "nuxt": "^4.4.8",
+    "openai": "^6.45.0",
     "pdf-lib": "^1.17.1",
     "sharp": "^0.34.3",
     "sortablejs": "^1.15.6",

@@ -1,5 +1,5 @@
 import { ImapFlow } from 'imapflow'
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { writeFileSync, existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { getImapConfig, isImapConfigured } from './config'
@@ -22,6 +22,35 @@ interface SyncedEmail {
   attachments: AttachmentInfo[]
 }
 
+export function formatImapError(err: unknown): string {
+  if (!err || typeof err !== 'object') {
+    return String(err)
+  }
+  const e = err as {
+    message?: string
+    responseText?: string
+    authenticationFailed?: boolean
+  }
+  const response = e.responseText?.toLowerCase() || ''
+  if (
+    e.authenticationFailed
+    || response.includes('invalid credentials')
+    || response.includes('authentication failed')
+  ) {
+    return 'IMAP authentication failed. Enable IMAP in Zoho Mail settings and use an app-specific password if 2FA is on.'
+  }
+  if (response.includes('invalid messageset')) {
+    return 'Inbox is empty — no messages to sync yet.'
+  }
+  if (e.responseText) {
+    return e.responseText
+  }
+  if (e.message === 'Command failed') {
+    return 'IMAP command failed. Check that IMAP is enabled in Zoho Mail settings.'
+  }
+  return e.message || 'IMAP sync failed'
+}
+
 function createImapClient() {
   const config = getImapConfig()
   return new ImapFlow({
@@ -40,6 +69,17 @@ function isImageAttachment(contentType: string): boolean {
   return contentType.toLowerCase().startsWith('image/')
 }
 
+export function parseMessageId(message: { uid: number; headers?: Buffer | unknown }): string {
+  if (message.headers && Buffer.isBuffer(message.headers)) {
+    const text = message.headers.toString('utf8')
+    const match = text.match(/^Message-ID:\s*(.+)$/im)
+    if (match?.[1]) {
+      return match[1].trim().replace(/^<|>$/g, '')
+    }
+  }
+  return `imap-uid-${message.uid}@storytime.local`
+}
+
 export async function syncInbox(): Promise<{ synced: number }> {
   if (!isImapConfigured()) {
     throw new Error('IMAP credentials are not configured')
@@ -53,6 +93,15 @@ export async function syncInbox(): Promise<{ synced: number }> {
     await client.connect()
     const lock = await client.getMailboxLock(config.mailbox)
     try {
+      const messageCount = client.mailbox?.exists ?? 0
+      if (messageCount === 0) {
+        logInfo('Inbox sync completed — mailbox is empty', { synced: 0 })
+        setMeta('last_sync_at', new Date().toISOString())
+        setMeta('last_sync_status', 'ok')
+        setMeta('last_sync_error', '')
+        return { synced: 0 }
+      }
+
       const messages: SyncedEmail[] = []
       for await (const message of client.fetch('1:*', {
         uid: true,
@@ -60,8 +109,7 @@ export async function syncInbox(): Promise<{ synced: number }> {
         bodyStructure: true,
         headers: ['message-id']
       })) {
-        const messageId = message.headers?.get('message-id')?.[0]
-          || `generated-${message.uid}@storytime.local`
+        const messageId = parseMessageId(message)
         const attachments = collectImageAttachments(message.bodyStructure)
         const sender = message.envelope?.from?.[0]
           ? `${message.envelope.from[0].name || ''} <${message.envelope.from[0].address}>`.trim()
@@ -133,7 +181,7 @@ export async function syncInbox(): Promise<{ synced: number }> {
     logInfo('Inbox sync completed', { synced })
     return { synced }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
+    const message = formatImapError(err)
     setMeta('last_sync_at', new Date().toISOString())
     setMeta('last_sync_status', 'error')
     setMeta('last_sync_error', message)
@@ -144,7 +192,7 @@ export async function syncInbox(): Promise<{ synced: number }> {
   }
 }
 
-function collectImageAttachments(structure: unknown, results: AttachmentInfo[] = []): AttachmentInfo[] {
+export function collectImageAttachments(structure: unknown, results: AttachmentInfo[] = []): AttachmentInfo[] {
   if (!structure || typeof structure !== 'object') {
     return results
   }
@@ -153,17 +201,17 @@ function collectImageAttachments(structure: unknown, results: AttachmentInfo[] =
     dispositionParameters?: { filename?: string }
     parameters?: { name?: string }
     type?: string
-    subtype?: string
     childNodes?: unknown[]
   }
 
   const filename = node.dispositionParameters?.filename || node.parameters?.name
-  const contentType = node.type && node.subtype
-    ? `${node.type}/${node.subtype}`
-  : ''
+  const contentType = node.type || ''
 
-  if (filename && isImageAttachment(contentType)) {
-    results.push({ filename, contentType })
+  if (isImageAttachment(contentType)) {
+    results.push({
+      filename: filename || `image-${results.length + 1}`,
+      contentType
+    })
   }
 
   if (node.childNodes) {

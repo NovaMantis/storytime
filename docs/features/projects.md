@@ -11,21 +11,10 @@ Each project maps to `data/projects/{sanitized-sender}/`:
 - `original/` — raw attachments from email
 - `processed/` — Python script output
 - `thumbnails/` — JPEG thumbnails for the UI
-- `project.md` — markdown notes with YAML frontmatter
+- `project.md` — markdown notes (plain text, no frontmatter)
 - `output.pdf` — test PDF (phase 1)
 
-## Frontmatter fields
-
-```yaml
----
-status: In review
-imageOrder:
-  - image-1.jpg
-  - image-2.jpg
-updatedAt: 2025-01-01T00:00:00.000Z
-senderEmail: alice@example.com
----
-```
+Structured project state (`status`, `imageOrder`) lives in SQLite (`data/storytime.db`), not in `project.md`.
 
 ## Status values
 
@@ -34,8 +23,8 @@ senderEmail: alice@example.com
 
 ## UI features
 
-- Drag-and-drop thumbnail reorder (saved to SQLite + `project.md`)
-- Notes textarea (markdown body in `project.md`)
+- Drag-and-drop thumbnail reorder (saved to SQLite)
+- Notes textarea (saved to `project.md`)
 - **Generate PDF** — test implementation stacks images vertically in `output.pdf`
 
 ## API

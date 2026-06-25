@@ -6,6 +6,16 @@ export interface ApiErrorResponse {
   }
 }
 
+export function isAbortError(err: unknown): boolean {
+  if (err instanceof DOMException && err.name === 'AbortError') {
+    return true
+  }
+  if (err instanceof Error && err.name === 'AbortError') {
+    return true
+  }
+  return false
+}
+
 export function useApi() {
   const toast = useToast()
 
@@ -13,6 +23,9 @@ export function useApi() {
     try {
       return await $fetch<T>(url, options)
     } catch (err: unknown) {
+      if (isAbortError(err)) {
+        throw err
+      }
       const data = (err as { data?: ApiErrorResponse })?.data
       const message = data?.error?.message || (err instanceof Error ? err.message : 'Request failed')
       toast.add({

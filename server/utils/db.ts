@@ -31,7 +31,8 @@ CREATE TABLE IF NOT EXISTS emails (
   processed_at TEXT,
   status TEXT NOT NULL DEFAULT 'pending',
   status_message TEXT,
-  project_id TEXT REFERENCES projects(id)
+  project_id TEXT REFERENCES projects(id),
+  archived INTEGER NOT NULL DEFAULT 0
 );
 
 CREATE TABLE IF NOT EXISTS processing_jobs (
@@ -46,10 +47,19 @@ CREATE TABLE IF NOT EXISTS processing_jobs (
 CREATE INDEX IF NOT EXISTS idx_emails_processed ON emails(processed);
 CREATE INDEX IF NOT EXISTS idx_emails_received_at ON emails(received_at);
 CREATE INDEX IF NOT EXISTS idx_emails_status ON emails(status);
+CREATE INDEX IF NOT EXISTS idx_emails_archived ON emails(archived);
 CREATE INDEX IF NOT EXISTS idx_projects_status ON projects(status);
 `
 
 let db: Database.Database | null = null
+
+function runMigrations(database: Database.Database) {
+  const columns = database.prepare('PRAGMA table_info(emails)').all() as { name: string }[]
+  if (!columns.some(column => column.name === 'archived')) {
+    database.exec('ALTER TABLE emails ADD COLUMN archived INTEGER NOT NULL DEFAULT 0')
+    database.exec('CREATE INDEX IF NOT EXISTS idx_emails_archived ON emails(archived)')
+  }
+}
 
 export function getDb(): Database.Database {
   if (!db) {
@@ -60,6 +70,7 @@ export function getDb(): Database.Database {
     db.pragma('foreign_keys = ON')
     db.exec(MIGRATIONS)
   }
+  runMigrations(db)
   return db
 }
 

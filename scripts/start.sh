@@ -8,13 +8,9 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-echo "==> Building Storytime"
-npm run build
-
 PORT=$(grep -E '^PORT=' .env 2>/dev/null | cut -d= -f2 || echo 3200)
 PORT=${PORT:-3200}
 export PORT
 
 echo "==> Starting Storytime on http://localhost:${PORT}"
-open "http://localhost:${PORT}" 2>/dev/null || true
-npm start
+npm run dev -- --open

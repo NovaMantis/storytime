@@ -1,4 +1,5 @@
 import { getDb } from '../../utils/db'
+import { getPendingReviewJob } from '../../utils/processPipeline'
 import type { ProjectRow } from '../../utils/types'
 
 export default defineEventHandler(() => {
@@ -13,7 +14,8 @@ export default defineEventHandler(() => {
       senderEmail: p.sender_email,
       status: p.status,
       imageCount: JSON.parse(p.image_order || '[]').length,
-      updatedAt: p.updated_at
+      updatedAt: p.updated_at,
+      pendingReview: Boolean(getPendingReviewJob(p.id))
     }))
   }
 })

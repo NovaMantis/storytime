@@ -1,4 +1,5 @@
 import { join, resolve } from 'node:path'
+import { getImageModel, getImagePrompt, getTextModel, getTextPrompt } from './settings'
 
 export function getDataDir(): string {
   const dir = process.env.STORYTIME_DATA_DIR || './data'
@@ -27,12 +28,28 @@ export function getImapConfig() {
   }
 }
 
-export function getPythonScriptPath(): string {
-  const script = process.env.PYTHON_SCRIPT_PATH || './scripts/process_images.py'
-  return resolve(process.cwd(), script)
-}
-
 export function isImapConfigured(): boolean {
   const { user, password } = getImapConfig()
   return Boolean(user && password)
+}
+
+export function getOpenAiConfig() {
+  return {
+    apiKey: process.env.OPENAI_API_KEY || '',
+    model: getImageModel(),
+    size: process.env.OPENAI_IMAGE_SIZE || '1024x1536',
+    prompt: getImagePrompt()
+  }
+}
+
+export function isOpenAiConfigured(): boolean {
+  return Boolean(process.env.OPENAI_API_KEY)
+}
+
+export function getOpenAiTextConfig() {
+  return {
+    apiKey: process.env.OPENAI_API_KEY || '',
+    model: getTextModel(),
+    prompt: getTextPrompt()
+  }
 }

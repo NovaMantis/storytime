@@ -3,10 +3,13 @@ const route = useRoute()
 
 const nav = [
   { label: 'Inbox', to: '/inbox', icon: 'i-lucide-inbox' },
-  { label: 'Projects', to: '/projects', icon: 'i-lucide-folder-open' }
+  { label: 'Projects', to: '/projects', icon: 'i-lucide-folder-open' },
+  { label: 'Settings', to: '/settings', icon: 'i-lucide-settings' }
 ]
 
 const { data: health } = await useFetch('/api/health')
+
+const { jokeActive, jokeMessage } = useJokeStatus()
 
 const syncLabel = computed(() => {
   if (!health.value?.imapConfigured) return 'IMAP not configured'
@@ -16,6 +19,10 @@ const syncLabel = computed(() => {
   }
   return 'Waiting for first sync'
 })
+
+const headerStatus = computed(() =>
+  jokeActive.value ? jokeMessage : syncLabel.value
+)
 </script>
 
 <template>
@@ -48,8 +55,11 @@ const syncLabel = computed(() => {
 
     <div class="flex-1 flex flex-col min-w-0">
       <header class="border-b border-default px-6 py-3 flex items-center justify-between gap-4">
-        <div class="text-sm text-muted">
-          {{ syncLabel }}
+        <div
+          class="text-sm text-muted transition-opacity duration-300"
+          :class="{ 'italic text-error': jokeActive }"
+        >
+          {{ headerStatus }}
         </div>
         <UColorModeButton />
       </header>

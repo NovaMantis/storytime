@@ -18,6 +18,7 @@ function makeEmail(overrides: Partial<EmailRow> = {}): EmailRow {
     status: 'pending',
     status_message: null,
     project_id: null,
+    archived: 0,
     ...overrides
   }
 }
@@ -47,6 +48,11 @@ describe('validateProcessSelection', () => {
 
   it('rejects already processed emails', () => {
     const emails = [makeEmail({ processed: 1, status: 'processed' })]
+    expect(() => validateProcessSelection(emails)).toThrow(AppError)
+  })
+
+  it('rejects emails awaiting review', () => {
+    const emails = [makeEmail({ status: 'awaiting_review' })]
     expect(() => validateProcessSelection(emails)).toThrow(AppError)
   })
 

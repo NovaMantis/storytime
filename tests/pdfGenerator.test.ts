@@ -21,13 +21,13 @@ async function tempProjectWithImages(count = 2) {
         channels: 3,
         background: { r: 50 * i, g: 100, b: 150 }
       }
-    }).jpeg().toBuffer()
-    writeFileSync(join(processed, `page-${i + 1}.jpg`), buf)
+    }).png().toBuffer()
+    writeFileSync(join(processed, `page-${i + 1}.png`), buf)
   }
 
   return {
     dir,
-    order: Array.from({ length: count }, (_, i) => `page-${i + 1}.jpg`)
+    order: Array.from({ length: count }, (_, i) => `page-${i + 1}.png`)
   }
 }
 

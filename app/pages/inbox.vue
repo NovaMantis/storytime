@@ -9,13 +9,28 @@ interface InboxEmail {
   has_image_attachments: boolean
   attachment_count: number
   processed: boolean
+  archived: boolean
   status: string
   status_message: string | null
+  projectId: string | null
+  projectSenderEmail: string | null
 }
 
 const filter = ref('all')
+const withAttachmentsOnly = ref(true)
+const emailFilter = ref('')
+const debouncedEmailFilter = ref('')
 const selected = ref<string[]>([])
+
+let emailFilterTimer: ReturnType<typeof setTimeout> | undefined
+watch(emailFilter, (value) => {
+  clearTimeout(emailFilterTimer)
+  emailFilterTimer = setTimeout(() => {
+    debouncedEmailFilter.value = value.trim()
+  }, 300)
+})
 const processing = ref(false)
+const archiving = ref(false)
 const processingMessage = ref('Processing emails…')
 const toast = useToast()
 const { api } = useApi()
@@ -23,14 +38,27 @@ const { api } = useApi()
 const filterOptions = [
   { label: 'All', value: 'all' },
   { label: 'Unprocessed', value: 'unprocessed' },
+  { label: 'Awaiting review', value: 'awaiting-review' },
   { label: 'Processed', value: 'processed' },
   { label: 'Errors', value: 'errors' },
-  { label: 'No images', value: 'no-images' }
+  { label: 'No images', value: 'no-images' },
+  { label: 'Archived', value: 'archived' }
 ]
 
+const isArchivedView = computed(() => filter.value === 'archived')
+
 const { data, refresh, status } = await useFetch('/api/inbox', {
-  query: computed(() => ({ filter: filter.value, pageSize: 100 })),
-  watch: [filter]
+  query: computed(() => ({
+    filter: filter.value,
+    withAttachments: withAttachmentsOnly.value && filter.value !== 'no-images' && filter.value !== 'archived' ? undefined : 'false',
+    email: debouncedEmailFilter.value.trim() || undefined,
+    pageSize: 100
+  })),
+  watch: [filter, withAttachmentsOnly, debouncedEmailFilter]
+})
+
+watch([filter, withAttachmentsOnly, debouncedEmailFilter], () => {
+  selected.value = []
 })
 
 const emails = computed(() => data.value?.emails ?? [])
@@ -45,15 +73,24 @@ const selectedEmails = computed(() =>
 )
 
 const canProcess = computed(() =>
-  selectedEmails.value.length > 0
-  && selectedEmails.value.every(e => e.has_image_attachments && !e.processed)
+  !isArchivedView.value
+  && selectedEmails.value.length > 0
+  && selectedEmails.value.every(e => e.has_image_attachments && e.status === 'pending')
 )
+
+const canArchive = computed(() =>
+  !isArchivedView.value && selected.value.length > 0
+)
+
+const canUnarchive = computed(() =>
+  isArchivedView.value && selected.value.length > 0
+)
+
+const selectableEmails = computed(() => emails.value)
 
 function toggleAll(checked: boolean) {
   if (checked) {
-    selected.value = emails.value
-      .filter(e => e.has_image_attachments && !e.processed)
-      .map(e => e.id)
+    selected.value = selectableEmails.value.map(e => e.id)
   } else {
     selected.value = []
   }
@@ -73,6 +110,25 @@ async function refreshInbox() {
   toast.add({ title: 'Inbox refreshed', color: 'success' })
 }
 
+async function archiveSelected(archived: boolean) {
+  archiving.value = true
+  try {
+    const result = await api<{ updated: number }>('/api/inbox/archive', {
+      method: 'POST',
+      body: { emailIds: selected.value, archived }
+    })
+    selected.value = []
+    await refresh()
+    toast.add({
+      title: archived ? 'Emails archived' : 'Emails restored',
+      description: `${result.updated} email${result.updated === 1 ? '' : 's'} updated.`,
+      color: 'success'
+    })
+  } finally {
+    archiving.value = false
+  }
+}
+
 async function processSelected() {
   const senders = new Set(selectedEmails.value.map(e => extractSender(e.sender)))
   if (senders.size > 1) {
@@ -85,7 +141,7 @@ async function processSelected() {
   }
 
   processing.value = true
-  processingMessage.value = 'Saving images and running Python script…'
+  processingMessage.value = 'Saving and preprocessing images…'
   try {
     const result = await api<{ projectId: string }>('/api/inbox/process', {
       method: 'POST',
@@ -94,11 +150,11 @@ async function processSelected() {
     selected.value = []
     await refresh()
     toast.add({
-      title: 'Processing complete',
-      description: 'Images saved and processed successfully.',
+      title: 'Preprocessing complete',
+      description: 'Review images and choose which need AI enhancement.',
       color: 'success'
     })
-    await navigateTo(`/projects/${result.projectId}`)
+    await navigateTo(`/projects/${result.projectId}/review`)
   } finally {
     processing.value = false
   }
@@ -118,7 +174,9 @@ function formatDate(value: string) {
 
     <AppPageHeader
       title="Inbox"
-      description="Select emails with image attachments from the same sender, then click Process."
+      :description="isArchivedView
+        ? 'Archived emails are hidden from the main inbox. Select emails to restore them.'
+        : 'Select emails with image attachments from the same sender, then click Process. Archive emails you want to hide from the inbox.'"
     />
 
     <div class="flex flex-wrap items-center gap-3 mb-4">
@@ -126,6 +184,23 @@ function formatDate(value: string) {
         v-model="filter"
         :items="filterOptions"
         class="w-44"
+      />
+      <label
+        class="inline-flex items-center gap-2 text-sm text-muted cursor-pointer select-none"
+        :class="{ 'opacity-50 cursor-not-allowed': filter === 'no-images' || filter === 'archived' }"
+      >
+        <USwitch
+          v-model="withAttachmentsOnly"
+          :disabled="filter === 'no-images' || filter === 'archived'"
+          aria-label="Only show emails with image attachments"
+        />
+        With image attachments
+      </label>
+      <UInput
+        v-model="emailFilter"
+        icon="i-lucide-search"
+        placeholder="Filter by sender email"
+        class="w-64"
       />
       <UButton
         icon="i-lucide-refresh-cw"
@@ -137,6 +212,29 @@ function formatDate(value: string) {
         Refresh now
       </UButton>
       <UButton
+        v-if="!isArchivedView"
+        icon="i-lucide-archive"
+        variant="outline"
+        color="neutral"
+        :disabled="!canArchive"
+        :loading="archiving"
+        @click="archiveSelected(true)"
+      >
+        Archive
+      </UButton>
+      <UButton
+        v-else
+        icon="i-lucide-archive-restore"
+        variant="outline"
+        color="neutral"
+        :disabled="!canUnarchive"
+        :loading="archiving"
+        @click="archiveSelected(false)"
+      >
+        Restore
+      </UButton>
+      <UButton
+        v-if="!isArchivedView"
         icon="i-lucide-play"
         :disabled="!canProcess"
         @click="processSelected"
@@ -152,7 +250,8 @@ function formatDate(value: string) {
             <tr class="border-b border-default text-left text-muted">
               <th class="p-3 w-10">
                 <UCheckbox
-                  :model-value="selected.length > 0 && selected.length === emails.filter(e => e.has_image_attachments && !e.processed).length"
+                  :model-value="selected.length > 0 && selected.length === selectableEmails.length"
+                  :disabled="selectableEmails.length === 0"
                   @update:model-value="toggleAll(!!$event)"
                 />
               </th>
@@ -185,7 +284,6 @@ function formatDate(value: string) {
               <td class="p-3">
                 <UCheckbox
                   :model-value="selected.includes(email.id)"
-                  :disabled="!email.has_image_attachments || email.processed"
                   @update:model-value="toggleRow(email.id, !!$event)"
                 />
               </td>
@@ -199,10 +297,40 @@ function formatDate(value: string) {
                 {{ formatDate(email.received_at) }}
               </td>
               <td class="p-3">
-                {{ email.attachment_count }}
+                <span
+                  v-if="email.has_image_attachments"
+                  class="inline-flex items-center gap-1.5"
+                  :title="`${email.attachment_count} image attachment${email.attachment_count === 1 ? '' : 's'}`"
+                >
+                  <UIcon
+                    name="i-lucide-images"
+                    class="size-4 text-primary shrink-0"
+                  />
+                  {{ email.attachment_count }}
+                </span>
+                <span
+                  v-else
+                  class="text-muted"
+                >—</span>
               </td>
               <td class="p-3">
-                <AppStatusBadge :status="email.status" />
+                <div class="flex flex-col items-start gap-1.5">
+                  <AppStatusBadge :status="email.status" />
+                  <NuxtLink
+                    v-if="email.projectId"
+                    :to="email.status === 'awaiting_review'
+                      ? `/projects/${email.projectId}/review`
+                      : `/projects/${email.projectId}`"
+                    class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                    :title="`Linked to project for ${email.projectSenderEmail}`"
+                  >
+                    <UIcon
+                      name="i-lucide-folder"
+                      class="size-3.5 shrink-0"
+                    />
+                    {{ email.projectSenderEmail }}
+                  </NuxtLink>
+                </div>
               </td>
               <td class="p-3 text-muted max-w-xs truncate">
                 {{ email.status_message || '—' }}
@@ -213,7 +341,7 @@ function formatDate(value: string) {
                 colspan="7"
                 class="p-8 text-center text-muted"
               >
-                No emails found. Click Refresh now after configuring Zoho IMAP in .env.
+                No emails found.{{ isArchivedView ? '' : ' Click Refresh now after configuring Zoho IMAP in .env.' }}
               </td>
             </tr>
           </tbody>

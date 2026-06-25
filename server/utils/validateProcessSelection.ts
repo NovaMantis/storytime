@@ -27,11 +27,11 @@ export function validateProcessSelection(emails: EmailRow[]): void {
     )
   }
 
-  const alreadyProcessed = emails.filter(e => e.processed)
+  const alreadyProcessed = emails.filter(e => e.processed || e.status === 'awaiting_review' || e.status === 'processed')
   if (alreadyProcessed.length > 0) {
     throw new AppError(
       'ALREADY_PROCESSED',
-      'One or more selected emails have already been processed.',
+      'One or more selected emails have already been processed or are awaiting review.',
       400,
       { emailIds: alreadyProcessed.map(e => e.id) }
     )

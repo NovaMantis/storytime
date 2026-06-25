@@ -1,4 +1,4 @@
-import { syncInbox } from '../utils/imap'
+import { syncInbox, formatImapError } from '../utils/imap'
 import { getImapConfig, isImapConfigured } from '../utils/config'
 import { logError, logInfo } from '../utils/logger'
 
@@ -12,7 +12,7 @@ async function runSync() {
     await syncInbox()
   } catch (err) {
     logError('Poller sync failed', {
-      error: err instanceof Error ? err.message : String(err)
+      error: formatImapError(err)
     })
   } finally {
     syncing = false

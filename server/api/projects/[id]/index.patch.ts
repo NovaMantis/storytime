@@ -1,5 +1,5 @@
 import { getDb } from '../../../utils/db'
-import { readProjectMarkdown, writeProjectMarkdown } from '../../../utils/projectMarkdown'
+import { readProjectNotes, writeProjectNotes } from '../../../utils/projectMarkdown'
 import { AppError, throwAppError } from '../../../utils/errors'
 import type { ProjectRow, ProjectStatus } from '../../../utils/types'
 
@@ -21,22 +21,14 @@ export default defineEventHandler(async (event) => {
     throwAppError(new AppError('NOT_FOUND', 'Project not found.', 404))
   }
 
-  const current = readProjectMarkdown(project.folder_path)
-  const status = body.status ?? current.frontmatter.status
-  const notes = body.notes ?? current.body
+  const status = body.status ?? project.status
+  const notes = body.notes ?? readProjectNotes(project.folder_path)
   const imageOrder = body.imageOrder ?? JSON.parse(project.image_order || '[]')
   const updatedAt = new Date().toISOString()
 
-  writeProjectMarkdown(
-    project.folder_path,
-    {
-      status,
-      imageOrder,
-      updatedAt,
-      senderEmail: project.sender_email
-    },
-    notes
-  )
+  if (body.notes !== undefined) {
+    writeProjectNotes(project.folder_path, notes)
+  }
 
   db.prepare('UPDATE projects SET status = ?, image_order = ?, updated_at = ? WHERE id = ?')
     .run(status, JSON.stringify(imageOrder), updatedAt, project.id)

@@ -1,4 +1,4 @@
-import { processEmails } from '../../utils/processPipeline'
+import { preprocessEmails } from '../../utils/processPipeline'
 import { AppError, throwAppError } from '../../utils/errors'
 
 export default defineEventHandler(async (event) => {
@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   }
 
   try {
-    return await processEmails(body.emailIds)
+    return await preprocessEmails(body.emailIds)
   } catch (err) {
     if (err instanceof AppError) {
       throwAppError(err)

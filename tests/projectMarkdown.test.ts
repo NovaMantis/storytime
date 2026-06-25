@@ -1,11 +1,13 @@
-import { mkdirSync, rmSync } from 'node:fs'
+import { mkdirSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { afterEach, describe, expect, it } from 'vitest'
 import {
   ensureProjectMarkdown,
-  readProjectMarkdown,
-  writeProjectMarkdown
+  getProjectMarkdownPath,
+  readLegacyProjectFrontmatter,
+  readProjectNotes,
+  writeProjectNotes
 } from '../server/utils/projectMarkdown'
 
 const dirs: string[] = []
@@ -24,30 +26,37 @@ afterEach(() => {
 })
 
 describe('projectMarkdown', () => {
-  it('creates default project.md', () => {
+  it('creates empty project.md', () => {
     const dir = tempProjectDir()
-    ensureProjectMarkdown(dir, 'alice@example.com')
-    const { frontmatter, body } = readProjectMarkdown(dir)
-    expect(frontmatter.status).toBe('In review')
-    expect(frontmatter.senderEmail).toBe('alice@example.com')
-    expect(body).toBe('')
+    ensureProjectMarkdown(dir)
+    expect(readProjectNotes(dir)).toBe('')
   })
 
-  it('round-trips frontmatter and body', () => {
+  it('round-trips notes', () => {
     const dir = tempProjectDir()
-    writeProjectMarkdown(
-      dir,
-      {
-        status: 'Ready',
-        imageOrder: ['a.jpg', 'b.jpg'],
-        updatedAt: '2025-06-01T00:00:00.000Z',
-        senderEmail: 'bob@example.com'
-      },
-      'Some notes here'
+    writeProjectNotes(dir, 'Some notes here')
+    expect(readProjectNotes(dir)).toBe('Some notes here')
+  })
+
+  it('reads notes from legacy frontmatter files', () => {
+    const dir = tempProjectDir()
+    writeFileSync(
+      getProjectMarkdownPath(dir),
+      `---
+status: Ready
+imageOrder:
+  - a.jpg
+senderEmail: bob@example.com
+---
+
+Legacy notes
+`
     )
-    const { frontmatter, body } = readProjectMarkdown(dir)
-    expect(frontmatter.status).toBe('Ready')
-    expect(frontmatter.imageOrder).toEqual(['a.jpg', 'b.jpg'])
-    expect(body).toBe('Some notes here')
+    expect(readProjectNotes(dir)).toBe('Legacy notes')
+    expect(readLegacyProjectFrontmatter(dir)).toEqual({
+      status: 'Ready',
+      imageOrder: ['a.jpg'],
+      senderEmail: 'bob@example.com'
+    })
   })
 })

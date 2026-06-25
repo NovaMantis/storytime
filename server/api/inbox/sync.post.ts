@@ -1,4 +1,4 @@
-import { syncInbox } from '../../utils/imap'
+import { syncInbox, formatImapError } from '../../utils/imap'
 import { AppError, throwAppError } from '../../utils/errors'
 import { isImapConfigured } from '../../utils/config'
 
@@ -15,7 +15,6 @@ export default defineEventHandler(async () => {
     const result = await syncInbox()
     return { ok: true, ...result }
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err)
-    throwAppError(new AppError('SYNC_FAILED', message, 500))
+    throwAppError(new AppError('SYNC_FAILED', formatImapError(err), 500))
   }
 })

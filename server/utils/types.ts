@@ -1,6 +1,6 @@
-export type EmailStatus = 'pending' | 'skipped' | 'processed' | 'error'
+export type EmailStatus = 'pending' | 'skipped' | 'processed' | 'error' | 'awaiting_review'
 export type ProjectStatus = 'In review' | 'Ready'
-export type ProcessingJobState = 'running' | 'completed' | 'failed'
+export type ProcessingJobState = 'running' | 'awaiting_review' | 'enhancing' | 'completed' | 'failed'
 
 export interface ProjectRow {
   id: string
@@ -25,6 +25,7 @@ export interface EmailRow {
   status: EmailStatus
   status_message: string | null
   project_id: string | null
+  archived: number
 }
 
 export interface ProcessingJobRow {
@@ -42,11 +43,4 @@ export interface ApiErrorBody {
     message: string
     details?: unknown
   }
-}
-
-export interface ProjectMarkdownFrontmatter {
-  status: ProjectStatus
-  imageOrder: string[]
-  updatedAt: string
-  senderEmail: string
 }

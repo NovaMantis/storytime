@@ -1,6 +1,11 @@
 <script setup lang="ts">
 defineProps<{
   message: string
+  cancellable?: boolean
+}>()
+
+const emit = defineEmits<{
+  cancel: []
 }>()
 </script>
 
@@ -15,6 +20,14 @@ defineProps<{
         <p class="text-center font-medium">
           {{ message }}
         </p>
+        <UButton
+          v-if="cancellable"
+          variant="outline"
+          color="neutral"
+          @click="emit('cancel')"
+        >
+          Cancel
+        </UButton>
       </div>
     </UCard>
   </div>
