@@ -49,8 +49,11 @@ watch(project, (value) => {
 const notes = ref('')
 const status = ref('In review')
 const imageOrder = ref<string[]>([])
+const extractedTexts = ref<Record<string, string>>({})
+const savedExtractedTexts = ref<Record<string, string>>({})
 const showOriginals = ref(false)
 const saving = ref(false)
+const savingTextFilename = ref<string | null>(null)
 const generatingPdf = ref(false)
 const listRef = ref<HTMLElement | null>(null)
 
@@ -59,6 +62,14 @@ watch(project, (value) => {
   notes.value = value.notes
   status.value = value.status
   imageOrder.value = [...value.imageOrder]
+  const texts: Record<string, string> = {}
+  for (const image of value.thumbnails) {
+    if (image.extractedText != null) {
+      texts[image.filename] = image.extractedText
+    }
+  }
+  extractedTexts.value = texts
+  savedExtractedTexts.value = { ...texts }
 }, { immediate: true })
 
 onMounted(() => {
@@ -125,6 +136,24 @@ const orderedImages = computed(() => {
 async function copyExtractedText(text: string) {
   await navigator.clipboard.writeText(text)
   toast.add({ title: 'Copied to clipboard', color: 'success' })
+}
+
+async function saveExtractedText(filename: string) {
+  if (!project.value) return
+  const text = extractedTexts.value[filename]
+  if (text === savedExtractedTexts.value[filename]) return
+
+  savingTextFilename.value = filename
+  try {
+    await api(`/api/projects/${project.value.id}/text/${encodeURIComponent(filename)}`, {
+      method: 'PATCH',
+      body: { text }
+    })
+    savedExtractedTexts.value[filename] = text
+    toast.add({ title: 'Text saved', color: 'success' })
+  } finally {
+    savingTextFilename.value = null
+  }
 }
 </script>
 
@@ -248,24 +277,37 @@ async function copyExtractedText(text: string) {
             </div>
 
             <div
-              v-if="image.extractedText"
+              v-if="image.extractedText != null"
               class="space-y-2"
             >
               <div class="flex items-center justify-between gap-2">
                 <p class="text-xs text-muted">
                   Extracted text
                 </p>
-                <UButton
-                  size="xs"
-                  variant="soft"
-                  color="neutral"
-                  icon="i-lucide-copy"
-                  @click="copyExtractedText(image.extractedText!)"
-                >
-                  Copy
-                </UButton>
+                <div class="flex items-center gap-2">
+                  <span
+                    v-if="savingTextFilename === image.filename"
+                    class="text-xs text-muted"
+                  >
+                    Saving…
+                  </span>
+                  <UButton
+                    size="xs"
+                    variant="soft"
+                    color="neutral"
+                    icon="i-lucide-copy"
+                    @click="copyExtractedText(extractedTexts[image.filename] ?? '')"
+                  >
+                    Copy
+                  </UButton>
+                </div>
               </div>
-              <pre class="text-sm whitespace-pre-wrap font-sans bg-elevated rounded p-3 border border-default">{{ image.extractedText }}</pre>
+              <UTextarea
+                v-model="extractedTexts[image.filename]"
+                :rows="8"
+                class="w-full font-sans"
+                @blur="saveExtractedText(image.filename)"
+              />
             </div>
           </div>
         </UCard>

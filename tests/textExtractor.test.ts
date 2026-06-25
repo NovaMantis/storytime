@@ -7,6 +7,7 @@ import {
   formatTextExtractSummary,
   getTextFilePath,
   readExtractedText,
+  writeExtractedText,
   type TextExtractResult
 } from '../server/utils/textExtractor'
 import { closeDb, getDb } from '../server/utils/db'
@@ -26,6 +27,15 @@ vi.mock('openai', async (importOriginal) => {
 describe('textExtractor helpers', () => {
   it('maps processed filename to text file path', () => {
     expect(getTextFilePath('/proj', 'page-1.png')).toBe(join('/proj', 'text', 'page-1.txt'))
+  })
+
+  it('writes extracted text to the text file', () => {
+    const projectDir = join(tmpdir(), `storytime-write-text-${Date.now()}`)
+    mkdirSync(join(projectDir, 'processed'), { recursive: true })
+    writeExtractedText(projectDir, 'page-1.png', 'corrected story text')
+    const textPath = getTextFilePath(projectDir, 'page-1.png')
+    expect(readFileSync(textPath, 'utf8')).toBe('corrected story text')
+    rmSync(projectDir, { recursive: true, force: true })
   })
 
   it('formats text extract summary', () => {

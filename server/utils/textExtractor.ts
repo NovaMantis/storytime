@@ -37,6 +37,16 @@ export function readExtractedText(projectFolderPath: string, processedFilename: 
   return readFileSync(textPath, 'utf8')
 }
 
+export function writeExtractedText(
+  projectFolderPath: string,
+  processedFilename: string,
+  text: string
+): void {
+  const textDir = join(projectFolderPath, 'text')
+  mkdirSync(textDir, { recursive: true })
+  writeFileSync(getTextFilePath(projectFolderPath, processedFilename), text, 'utf8')
+}
+
 function createOpenAiClient(): OpenAI {
   if (!isOpenAiConfigured()) {
     throw new AppError(
