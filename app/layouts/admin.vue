@@ -65,6 +65,7 @@ const headerStatus = computed(() =>
       </header>
 
       <main class="flex-1 p-6 overflow-auto">
+        <AppUpdateBanner />
         <AppSyncBanner
           v-if="health?.lastSyncStatus === 'error'"
           :message="health.lastSyncError || 'Inbox sync failed. Check your Zoho credentials in .env.'"
