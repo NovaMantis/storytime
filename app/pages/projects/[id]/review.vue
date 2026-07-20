@@ -163,6 +163,21 @@ const continueButtonLabel = computed(() => {
   if (parts.length === 0) return 'Continue'
   return `Continue (${parts.join(', ')})`
 })
+
+const lightboxOpen = ref(false)
+const lightboxIndex = ref(0)
+
+const lightboxImages = computed(() =>
+  (review.value?.images ?? []).map(image => ({
+    src: image.preprocessedUrl,
+    alt: image.filename
+  }))
+)
+
+function openLightbox(index: number) {
+  lightboxIndex.value = index
+  lightboxOpen.value = true
+}
 </script>
 
 <template>
@@ -210,7 +225,7 @@ const continueButtonLabel = computed(() => {
 
       <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
         <UCard
-          v-for="image in review.images"
+          v-for="(image, index) in review.images"
           :key="image.filename"
         >
           <div class="space-y-3">
@@ -222,21 +237,35 @@ const continueButtonLabel = computed(() => {
                 <p class="text-xs text-muted mb-1">
                   Preprocessed
                 </p>
-                <img
-                  :src="image.preprocessedUrl"
-                  :alt="image.filename"
-                  class="w-full rounded border border-default bg-white"
+                <button
+                  type="button"
+                  class="block w-full text-left cursor-zoom-in"
+                  :aria-label="`View ${image.filename}`"
+                  @click="openLightbox(index)"
                 >
+                  <img
+                    :src="image.preprocessedUrl"
+                    :alt="image.filename"
+                    class="w-full rounded border border-default bg-white"
+                  >
+                </button>
               </div>
               <div v-if="showOriginals && image.originalUrl">
                 <p class="text-xs text-muted mb-1">
                   Original
                 </p>
-                <img
-                  :src="image.originalUrl"
-                  :alt="image.originalFilename || 'Original'"
-                  class="w-full rounded border border-default bg-white"
+                <button
+                  type="button"
+                  class="block w-full text-left cursor-zoom-in"
+                  :aria-label="`View original ${image.originalFilename || image.filename}`"
+                  @click="openLightbox(index)"
                 >
+                  <img
+                    :src="image.originalUrl"
+                    :alt="image.originalFilename || 'Original'"
+                    class="w-full rounded border border-default bg-white"
+                  >
+                </button>
               </div>
             </div>
 
@@ -276,6 +305,12 @@ const continueButtonLabel = computed(() => {
           {{ continueButtonLabel }}
         </UButton>
       </div>
+
+      <AppImageLightbox
+        v-model:open="lightboxOpen"
+        :images="lightboxImages"
+        :start-index="lightboxIndex"
+      />
     </template>
   </div>
 </template>

@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 import OpenAI, { toFile } from 'openai'
+import sharp from 'sharp'
 import { getOpenAiConfig, isOpenAiConfigured } from './config'
 import { AppError } from './errors'
 import { logError, logInfo } from './logger'
@@ -98,8 +99,24 @@ export async function processSingleImageWithAi(
 
   logInfo('Processing image with OpenAI', { filename: originalFilename, model })
 
-  const mimeType = getImageMimeType(originalFilename)
-  const image = await toFile(readFileSync(inputPath), originalFilename, {
+  // Phone JPEGs (MPO/HDR/EXIF) often fail OpenAI images.edit even though Sharp can read them.
+  // Prefer the Sharp-normalized preprocessed PNG; otherwise re-encode the original to PNG.
+  const preprocessedPath = join(projectFolderPath, 'preprocessed', getProcessedOutputName(originalFilename))
+  let uploadFilename: string
+  let mimeType: string
+  let fileBytes: Buffer
+
+  if (existsSync(preprocessedPath)) {
+    fileBytes = readFileSync(preprocessedPath)
+    uploadFilename = getProcessedOutputName(originalFilename)
+    mimeType = 'image/png'
+  } else {
+    fileBytes = await sharp(inputPath).rotate().png().toBuffer()
+    uploadFilename = getProcessedOutputName(originalFilename)
+    mimeType = 'image/png'
+  }
+
+  const image = await toFile(fileBytes, uploadFilename, {
     type: mimeType
   })
 

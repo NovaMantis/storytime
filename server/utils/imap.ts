@@ -222,6 +222,57 @@ export function collectImageAttachments(structure: unknown, results: AttachmentI
   return results
 }
 
+export interface EmailBodyContent {
+  text: string | null
+  html: string | null
+  attachments: AttachmentInfo[]
+}
+
+export async function fetchEmailBody(email: EmailRow): Promise<EmailBodyContent> {
+  if (!isImapConfigured()) {
+    throw new Error('IMAP credentials are not configured')
+  }
+  if (!email.imap_uid) {
+    throw new Error('Email has no IMAP UID — refresh the inbox and try again')
+  }
+
+  const config = getImapConfig()
+  const client = createImapClient()
+
+  try {
+    await client.connect()
+    const lock = await client.getMailboxLock(config.mailbox)
+    try {
+      const message = await client.fetchOne(email.imap_uid, { source: true }, { uid: true })
+      const source = message && typeof message === 'object' ? message.source : undefined
+      if (!source) {
+        throw new Error('Email message could not be loaded from IMAP')
+      }
+
+      const { simpleParser } = await import('mailparser')
+      const parsed = await simpleParser(source)
+      const attachments: AttachmentInfo[] = []
+      for (const attachment of parsed.attachments || []) {
+        if (!attachment.contentType?.startsWith('image/')) continue
+        attachments.push({
+          filename: attachment.filename || `image-${attachments.length + 1}`,
+          contentType: attachment.contentType
+        })
+      }
+
+      return {
+        text: parsed.text || null,
+        html: typeof parsed.html === 'string' ? parsed.html : null,
+        attachments
+      }
+    } finally {
+      lock.release()
+    }
+  } finally {
+    await client.logout().catch(() => {})
+  }
+}
+
 export async function downloadEmailAttachments(
   emails: EmailRow[],
   originalDir: string

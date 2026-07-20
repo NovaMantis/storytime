@@ -133,6 +133,21 @@ const orderedImages = computed(() => {
     .filter(Boolean) as ProjectDetail['thumbnails']
 })
 
+const lightboxOpen = ref(false)
+const lightboxIndex = ref(0)
+
+const lightboxImages = computed(() =>
+  orderedImages.value.map(image => ({
+    src: image.processedUrl,
+    alt: image.filename
+  }))
+)
+
+function openLightbox(index: number) {
+  lightboxIndex.value = index
+  lightboxOpen.value = true
+}
+
 async function copyExtractedText(text: string) {
   await navigator.clipboard.writeText(text)
   toast.add({ title: 'Copied to clipboard', color: 'success' })
@@ -234,7 +249,7 @@ async function saveExtractedText(filename: string) {
         class="space-y-4"
       >
         <UCard
-          v-for="image in orderedImages"
+          v-for="(image, index) in orderedImages"
           :key="image.filename"
           class="image-item"
           :data-filename="image.filename"
@@ -258,21 +273,35 @@ async function saveExtractedText(filename: string) {
                 <p class="text-xs text-muted mb-1">
                   Processed
                 </p>
-                <img
-                  :src="image.processedUrl"
-                  :alt="image.filename"
-                  class="w-full rounded border border-default bg-white"
+                <button
+                  type="button"
+                  class="block w-full text-left cursor-zoom-in"
+                  :aria-label="`View ${image.filename}`"
+                  @click="openLightbox(index)"
                 >
+                  <img
+                    :src="image.processedUrl"
+                    :alt="image.filename"
+                    class="w-full rounded border border-default bg-white"
+                  >
+                </button>
               </div>
               <div v-if="showOriginals && image.originalUrl">
                 <p class="text-xs text-muted mb-1">
                   Original
                 </p>
-                <img
-                  :src="image.originalUrl"
-                  :alt="image.originalFilename || 'Original'"
-                  class="w-full rounded border border-default bg-white"
+                <button
+                  type="button"
+                  class="block w-full text-left cursor-zoom-in"
+                  :aria-label="`View original ${image.originalFilename || image.filename}`"
+                  @click="openLightbox(index)"
                 >
+                  <img
+                    :src="image.originalUrl"
+                    :alt="image.originalFilename || 'Original'"
+                    class="w-full rounded border border-default bg-white"
+                  >
+                </button>
               </div>
             </div>
 
@@ -333,5 +362,11 @@ async function saveExtractedText(filename: string) {
         class="w-full"
       />
     </UCard>
+
+    <AppImageLightbox
+      v-model:open="lightboxOpen"
+      :images="lightboxImages"
+      :start-index="lightboxIndex"
+    />
   </div>
 </template>

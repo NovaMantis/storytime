@@ -16,6 +16,12 @@ interface InboxEmail {
   projectSenderEmail: string | null
 }
 
+interface InboxEmailDetail extends InboxEmail {
+  text: string | null
+  html: string | null
+  attachments: { filename: string, contentType: string }[]
+}
+
 const filter = ref('all')
 const withAttachmentsOnly = ref(true)
 const emailFilter = ref('')
@@ -32,6 +38,9 @@ watch(emailFilter, (value) => {
 const processing = ref(false)
 const archiving = ref(false)
 const processingMessage = ref('Processing emails…')
+const detailOpen = ref(false)
+const detailLoading = ref(false)
+const detail = ref<InboxEmailDetail | null>(null)
 const toast = useToast()
 const { api } = useApi()
 
@@ -163,6 +172,19 @@ async function processSelected() {
 function formatDate(value: string) {
   return new Date(value).toLocaleString()
 }
+
+async function openEmail(email: InboxEmail) {
+  detailOpen.value = true
+  detailLoading.value = true
+  detail.value = null
+  try {
+    detail.value = await api<InboxEmailDetail>(`/api/inbox/${email.id}`)
+  } catch {
+    detailOpen.value = false
+  } finally {
+    detailLoading.value = false
+  }
+}
 </script>
 
 <template>
@@ -243,6 +265,85 @@ function formatDate(value: string) {
       </UButton>
     </div>
 
+    <UModal
+      v-model:open="detailOpen"
+      :title="detail?.subject || 'Email'"
+      :description="detail ? `${detail.sender} · ${formatDate(detail.received_at)}` : undefined"
+      :ui="{ content: 'sm:max-w-3xl' }"
+    >
+      <template #body>
+        <div
+          v-if="detailLoading"
+          class="flex items-center justify-center gap-2 py-16 text-muted"
+        >
+          <UIcon
+            name="i-lucide-loader-circle"
+            class="size-5 animate-spin"
+          />
+          Loading email…
+        </div>
+        <div
+          v-else-if="detail"
+          class="space-y-4"
+        >
+          <div class="flex flex-wrap items-center gap-3 text-sm">
+            <AppStatusBadge :status="detail.status" />
+            <span
+              v-if="detail.has_image_attachments"
+              class="inline-flex items-center gap-1.5 text-muted"
+            >
+              <UIcon
+                name="i-lucide-images"
+                class="size-4 shrink-0"
+              />
+              {{ detail.attachment_count }} image{{ detail.attachment_count === 1 ? '' : 's' }}
+            </span>
+            <span
+              v-if="detail.status_message"
+              class="text-muted"
+            >
+              {{ detail.status_message }}
+            </span>
+          </div>
+
+          <ul
+            v-if="detail.attachments.length > 0"
+            class="text-sm text-muted space-y-1"
+          >
+            <li
+              v-for="attachment in detail.attachments"
+              :key="attachment.filename"
+              class="inline-flex items-center gap-1.5 mr-3"
+            >
+              <UIcon
+                name="i-lucide-paperclip"
+                class="size-3.5 shrink-0"
+              />
+              {{ attachment.filename }}
+            </li>
+          </ul>
+
+          <iframe
+            v-if="detail.html"
+            :srcdoc="detail.html"
+            sandbox=""
+            title="Email body"
+            class="w-full min-h-96 rounded border border-default bg-white"
+          />
+          <pre
+            v-else-if="detail.text"
+            class="whitespace-pre-wrap text-sm font-sans leading-relaxed text-default"
+          >{{ detail.text }}</pre>
+          <p
+            v-else
+            class="text-muted text-sm py-8 text-center"
+          >
+            This email has no readable body content.
+          </p>
+        </div>
+      </template>
+    </UModal>
+
     <UCard>
       <div class="overflow-x-auto">
         <table class="w-full text-sm">
@@ -279,9 +380,13 @@ function formatDate(value: string) {
             <tr
               v-for="email in emails"
               :key="email.id"
-              class="border-b border-default/60 hover:bg-elevated/40"
+              class="border-b border-default/60 hover:bg-elevated/40 cursor-pointer"
+              @click="openEmail(email)"
             >
-              <td class="p-3">
+              <td
+                class="p-3"
+                @click.stop
+              >
                 <UCheckbox
                   :model-value="selected.includes(email.id)"
                   @update:model-value="toggleRow(email.id, !!$event)"
@@ -323,6 +428,7 @@ function formatDate(value: string) {
                       : `/projects/${email.projectId}`"
                     class="inline-flex items-center gap-1 text-xs text-primary hover:underline"
                     :title="`Linked to project for ${email.projectSenderEmail}`"
+                    @click.stop
                   >
                     <UIcon
                       name="i-lucide-folder"
