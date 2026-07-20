@@ -4,6 +4,7 @@ export const IMAGE_PROMPT_META_KEY = 'openai_image_prompt'
 export const TEXT_PROMPT_META_KEY = 'openai_text_prompt'
 export const IMAGE_MODEL_META_KEY = 'openai_image_model'
 export const TEXT_MODEL_META_KEY = 'openai_text_model'
+export const MANUSCRIPT_DEFAULT_FONT_META_KEY = 'manuscript_default_font'
 
 export const DEFAULT_IMAGE_PROMPT = (
   'please remove the writing, the lines and the dashed line box to just the drawing then enhance and make brighter and make the white background pure white. Ensure that the entire drawing is kept and that it is portrait orientation. (keep in portrait orientation and make sure none of the image is cropped)'
@@ -15,6 +16,7 @@ export const DEFAULT_TEXT_PROMPT = (
 
 export const DEFAULT_IMAGE_MODEL = 'gpt-image-1.5'
 export const DEFAULT_TEXT_MODEL = 'gpt-4o'
+export const DEFAULT_MANUSCRIPT_FONT = 'Literata'
 
 export function getImagePrompt(): string {
   return getMeta(IMAGE_PROMPT_META_KEY)
@@ -77,5 +79,19 @@ export function setTextModel(model: string): void {
 export function initTextModel(): void {
   if (!getMeta(TEXT_MODEL_META_KEY)) {
     setMeta(TEXT_MODEL_META_KEY, process.env.OPENAI_TEXT_MODEL || DEFAULT_TEXT_MODEL)
+  }
+}
+
+export function getManuscriptDefaultFont(): string {
+  return getMeta(MANUSCRIPT_DEFAULT_FONT_META_KEY) || DEFAULT_MANUSCRIPT_FONT
+}
+
+export function setManuscriptDefaultFont(font: string): void {
+  setMeta(MANUSCRIPT_DEFAULT_FONT_META_KEY, font.trim())
+}
+
+export function initManuscriptDefaultFont(): void {
+  if (!getMeta(MANUSCRIPT_DEFAULT_FONT_META_KEY)) {
+    setMeta(MANUSCRIPT_DEFAULT_FONT_META_KEY, DEFAULT_MANUSCRIPT_FONT)
   }
 }

@@ -6,18 +6,22 @@ import { closeDb, getDb } from '../server/utils/db'
 import {
   DEFAULT_IMAGE_MODEL,
   DEFAULT_IMAGE_PROMPT,
+  DEFAULT_MANUSCRIPT_FONT,
   DEFAULT_TEXT_MODEL,
   DEFAULT_TEXT_PROMPT,
   getImageModel,
   getImagePrompt,
+  getManuscriptDefaultFont,
   getTextModel,
   getTextPrompt,
   initImageModel,
   initImagePrompt,
+  initManuscriptDefaultFont,
   initTextModel,
   initTextPrompt,
   setImageModel,
   setImagePrompt,
+  setManuscriptDefaultFont,
   setTextModel,
   setTextPrompt
 } from '../server/utils/settings'
@@ -188,5 +192,34 @@ describe('text model settings', () => {
     initTextModel()
     setTextModel('updated-text-model')
     expect(getTextModel()).toBe('updated-text-model')
+  })
+})
+
+describe('manuscript default font settings', () => {
+  let dataDir: string
+
+  beforeEach(() => {
+    dataDir = join(tmpdir(), `storytime-manuscript-font-${Date.now()}`)
+    mkdirSync(dataDir, { recursive: true })
+    process.env.STORYTIME_DATA_DIR = dataDir
+    closeDb()
+    getDb()
+  })
+
+  afterEach(() => {
+    closeDb()
+    rmSync(dataDir, { recursive: true, force: true })
+    delete process.env.STORYTIME_DATA_DIR
+  })
+
+  it('seeds Literata on init', () => {
+    initManuscriptDefaultFont()
+    expect(getManuscriptDefaultFont()).toBe(DEFAULT_MANUSCRIPT_FONT)
+  })
+
+  it('persists font updates', () => {
+    initManuscriptDefaultFont()
+    setManuscriptDefaultFont('Merriweather')
+    expect(getManuscriptDefaultFont()).toBe('Merriweather')
   })
 })

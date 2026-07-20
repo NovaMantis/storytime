@@ -1,5 +1,6 @@
 import { getDb } from '../../../utils/db'
-import { generateProjectPdf } from '../../../utils/pdfGenerator'
+import { generateManuscriptPdf } from '../../../utils/pdfGenerator'
+import { getOrCreateManuscript, readManuscript } from '../../../utils/manuscript'
 import { AppError, throwAppError } from '../../../utils/errors'
 import type { ProjectRow } from '../../../utils/types'
 
@@ -15,9 +16,13 @@ export default defineEventHandler(async (event) => {
     throwAppError(new AppError('NOT_FOUND', 'Project not found.', 404))
   }
 
-  const imageOrder: string[] = JSON.parse(project.image_order || '[]')
   try {
-    await generateProjectPdf(project.folder_path, imageOrder)
+    let manuscript = readManuscript(project.folder_path)
+    if (!manuscript) {
+      const imageOrder: string[] = JSON.parse(project.image_order || '[]')
+      manuscript = await getOrCreateManuscript(project.folder_path, imageOrder)
+    }
+    await generateManuscriptPdf(project.folder_path, manuscript)
     return {
       ok: true,
       pdfUrl: `/api/projects/${project.id}/pdf`

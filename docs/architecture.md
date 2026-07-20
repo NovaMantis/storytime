@@ -6,11 +6,11 @@ Storytime is a local-first Nuxt full-stack app. The browser UI talks to Nitro AP
 
 | Layer | Location | Role |
 |-------|----------|------|
-| UI | `app/pages/`, `app/components/` | Admin panel (Inbox, Projects) |
+| UI | `app/pages/`, `app/components/` | Admin panel (Inbox, Projects, Media, Settings) |
 | API | `server/api/` | HTTP endpoints |
-| Services | `server/utils/` | Business logic (IMAP, OpenAI images, PDF) |
+| Services | `server/utils/` | Business logic (IMAP, OpenAI images, PDF, media library) |
 | Plugins | `server/plugins/` | DB init, IMAP poller |
-| Storage | `data/` | SQLite DB, project folders, logs |
+| Storage | `data/` | SQLite DB, project folders, site media, fonts, logs |
 
 ## Data flow
 
@@ -55,6 +55,8 @@ Projects with a pending review job cannot accept new Process runs until finalize
 
 ## Phase 2 hooks
 
-- Replace `pdfGenerator.ts` implementation without changing the UI
+- Manuscript editor + `manuscript.json` / `manuscript.original.json` drive PDF export and reset
+- Site-wide media library under `data/media/` for reuse across projects
 - `processing_jobs` table supports async processing if OpenAI calls get slow
-- Customize prompt/model via `OPENAI_IMAGE_*` env vars
+- Customize prompt/model via settings UI or `OPENAI_IMAGE_*` env vars
+- Default manuscript font via settings (`Literata`)

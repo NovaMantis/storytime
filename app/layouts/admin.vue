@@ -4,6 +4,7 @@ const route = useRoute()
 const nav = [
   { label: 'Inbox', to: '/inbox', icon: 'i-lucide-inbox' },
   { label: 'Projects', to: '/projects', icon: 'i-lucide-folder-open' },
+  { label: 'Media', to: '/media', icon: 'i-lucide-images' },
   { label: 'Settings', to: '/settings', icon: 'i-lucide-settings' }
 ]
 

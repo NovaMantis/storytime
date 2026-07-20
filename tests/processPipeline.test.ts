@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from 'vitest'
-import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs'
+import { mkdirSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { tmpdir } from 'node:os'
 import { getDb, closeDb } from '../server/utils/db'
@@ -189,6 +189,10 @@ describe('finalizeProjectImages', () => {
     )
     expect(mockExtractProjectTexts).not.toHaveBeenCalled()
     expect(existsSync(join(folderPath, 'processed', 'test.png'))).toBe(true)
+    expect(JSON.parse(readFileSync(join(folderPath, 'ai-processing.json'), 'utf8'))).toEqual({
+      aiImageFilenames: ['test.png'],
+      aiTextFilenames: []
+    })
   })
 
   it('calls text extraction only for selected images', async () => {
@@ -209,6 +213,10 @@ describe('finalizeProjectImages', () => {
     expect(mockProcessProjectImages).not.toHaveBeenCalled()
     expect(existsSync(join(folderPath, 'text', 'test.txt'))).toBe(true)
     expect(existsSync(join(folderPath, 'processed', 'test.png'))).toBe(true)
+    expect(JSON.parse(readFileSync(join(folderPath, 'ai-processing.json'), 'utf8'))).toEqual({
+      aiImageFilenames: [],
+      aiTextFilenames: ['test.png']
+    })
   })
 
   it('runs image and text extraction in parallel when both selected', async () => {

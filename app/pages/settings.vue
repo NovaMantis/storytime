@@ -6,6 +6,7 @@ interface Settings {
   imageModel: string
   textPrompt: string
   textModel: string
+  manuscriptDefaultFont: string
 }
 
 const toast = useToast()
@@ -17,8 +18,10 @@ const imagePrompt = ref('')
 const imageModel = ref('')
 const textPrompt = ref('')
 const textModel = ref('')
+const manuscriptDefaultFont = ref('')
 const savingImage = ref(false)
 const savingText = ref(false)
+const savingManuscript = ref(false)
 
 watch(settings, (value) => {
   if (!value) return
@@ -26,6 +29,7 @@ watch(settings, (value) => {
   imageModel.value = value.imageModel
   textPrompt.value = value.textPrompt
   textModel.value = value.textModel
+  manuscriptDefaultFont.value = value.manuscriptDefaultFont
 }, { immediate: true })
 
 async function saveImageSettings() {
@@ -59,6 +63,22 @@ async function saveTextSettings() {
     toast.add({ title: 'Text settings saved', color: 'success' })
   } finally {
     savingText.value = false
+  }
+}
+
+async function saveManuscriptSettings() {
+  savingManuscript.value = true
+  try {
+    await api<Settings>('/api/settings', {
+      method: 'PATCH',
+      body: {
+        manuscriptDefaultFont: manuscriptDefaultFont.value
+      }
+    })
+    await refresh()
+    toast.add({ title: 'Manuscript settings saved', color: 'success' })
+  } finally {
+    savingManuscript.value = false
   }
 }
 </script>
@@ -148,6 +168,53 @@ async function saveTextSettings() {
               :loading="savingText"
               :disabled="!textPrompt.trim() || !textModel.trim()"
               @click="saveTextSettings"
+            >
+              Save
+            </UButton>
+          </div>
+        </template>
+      </UCard>
+
+      <UCard>
+        <template #header>
+          <p class="font-medium">
+            Manuscript editor
+          </p>
+          <p class="text-sm text-muted">
+            Default Google Font used for new manuscripts and new text boxes.
+          </p>
+        </template>
+
+        <div class="space-y-4">
+          <UFormField label="Default font family">
+            <UInput
+              v-model="manuscriptDefaultFont"
+              placeholder="Literata"
+              class="w-full"
+            />
+          </UFormField>
+          <p class="text-sm text-muted">
+            Type the exact Google Fonts family name (for example
+            <span class="font-medium text-default">Literata</span>
+            or
+            <span class="font-medium text-default">Merriweather</span>).
+            Browse fonts at
+            <a
+              href="https://fonts.google.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="text-primary underline"
+            >fonts.google.com</a>,
+            then paste the family name here. Changing this does not update manuscripts that already exist.
+          </p>
+        </div>
+
+        <template #footer>
+          <div class="flex justify-end">
+            <UButton
+              :loading="savingManuscript"
+              :disabled="!manuscriptDefaultFont.trim()"
+              @click="saveManuscriptSettings"
             >
               Save
             </UButton>

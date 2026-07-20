@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs'
 import { join } from 'node:path'
+import { getAiFlagsForFilename, readAiProcessingMeta } from '../../../utils/aiProcessingMeta'
 import { getDb } from '../../../utils/db'
 import { findOriginalForProcessedName } from '../../../utils/imageProcessor'
 import { getPendingReviewJob } from '../../../utils/processPipeline'
@@ -23,11 +24,18 @@ export default defineEventHandler((event) => {
 
   const notes = readProjectNotes(project.folder_path)
   const pendingReview = Boolean(getPendingReviewJob(project.id))
+  const aiMeta = readAiProcessingMeta(project.folder_path)
 
   const imageOrder: string[] = JSON.parse(project.image_order || '[]')
   const originalDir = join(project.folder_path, 'original')
   const thumbnails = imageOrder.map((filename) => {
     const originalFilename = findOriginalForProcessedName(filename, originalDir)
+    const extractedText = readExtractedText(project.folder_path, filename)
+    const { aiImageEnhanced, aiTextExtracted } = getAiFlagsForFilename(
+      project.folder_path,
+      filename,
+      { meta: aiMeta, hasExtractedText: extractedText != null }
+    )
     return {
       filename,
       thumbnailUrl: `/api/projects/${project.id}/thumbnails/${encodeURIComponent(filename)}`,
@@ -36,7 +44,9 @@ export default defineEventHandler((event) => {
         ? `/api/projects/${project.id}/originals/${encodeURIComponent(originalFilename)}`
         : null,
       originalFilename,
-      extractedText: readExtractedText(project.folder_path, filename),
+      extractedText,
+      aiImageEnhanced,
+      aiTextExtracted,
       hasThumbnail: existsSync(join(project.folder_path, 'thumbnails', getThumbnailFilename(filename)))
     }
   })

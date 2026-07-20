@@ -2,10 +2,12 @@ import { AppError, throwAppError } from '../../utils/errors'
 import {
   getImageModel,
   getImagePrompt,
+  getManuscriptDefaultFont,
   getTextModel,
   getTextPrompt,
   setImageModel,
   setImagePrompt,
+  setManuscriptDefaultFont,
   setTextModel,
   setTextPrompt
 } from '../../utils/settings'
@@ -16,6 +18,7 @@ export default defineEventHandler(async (event) => {
     imageModel?: string
     textPrompt?: string
     textModel?: string
+    manuscriptDefaultFont?: string
   }>(event)
 
   if (body.imagePrompt !== undefined) {
@@ -46,10 +49,18 @@ export default defineEventHandler(async (event) => {
     setTextModel(body.textModel)
   }
 
+  if (body.manuscriptDefaultFont !== undefined) {
+    if (typeof body.manuscriptDefaultFont !== 'string' || !body.manuscriptDefaultFont.trim()) {
+      throwAppError(new AppError('INVALID_FONT', 'Manuscript default font is required.', 400))
+    }
+    setManuscriptDefaultFont(body.manuscriptDefaultFont)
+  }
+
   return {
     imagePrompt: getImagePrompt(),
     imageModel: getImageModel(),
     textPrompt: getTextPrompt(),
-    textModel: getTextModel()
+    textModel: getTextModel(),
+    manuscriptDefaultFont: getManuscriptDefaultFont()
   }
 })

@@ -29,6 +29,7 @@ import {
   defaultImageOrder,
   validateProcessSelection
 } from './validateProcessSelection'
+import { writeAiProcessingMeta } from './aiProcessingMeta'
 import { AppError } from './errors'
 import { logError } from './logger'
 import { throwIfAborted } from './requestAbort'
@@ -263,6 +264,11 @@ export async function finalizeProjectImages(
     const processedFiles = listProcessedImageFiles(project.folder_path)
     const imageOrder = defaultImageOrder(processedFiles)
     await generateThumbnails(project.folder_path, imageOrder)
+
+    writeAiProcessingMeta(project.folder_path, {
+      aiImageFilenames: aiResult.processed,
+      aiTextFilenames: textResult.extracted
+    })
 
     const updatedAt = new Date().toISOString()
     db.prepare(`

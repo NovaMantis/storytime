@@ -3,20 +3,24 @@ import Sortable from 'sortablejs'
 
 definePageMeta({ layout: 'admin' })
 
+interface ProjectThumbnail {
+  filename: string
+  thumbnailUrl: string
+  processedUrl: string
+  originalUrl: string | null
+  originalFilename: string | null
+  extractedText: string | null
+  aiImageEnhanced: boolean
+  aiTextExtracted: boolean
+}
+
 interface ProjectDetail {
   id: string
   senderEmail: string
   status: string
   notes: string
   imageOrder: string[]
-  thumbnails: {
-    filename: string
-    thumbnailUrl: string
-    processedUrl: string
-    originalUrl: string | null
-    originalFilename: string | null
-    extractedText: string | null
-  }[]
+  thumbnails: ProjectThumbnail[]
   hasPdf: boolean
   pdfUrl: string | null
   updatedAt: string
@@ -51,10 +55,10 @@ const status = ref('In review')
 const imageOrder = ref<string[]>([])
 const extractedTexts = ref<Record<string, string>>({})
 const savedExtractedTexts = ref<Record<string, string>>({})
-const showOriginals = ref(false)
+const showOriginals = ref(true)
+const showAiProcessedOnly = ref(true)
 const saving = ref(false)
 const savingTextFilename = ref<string | null>(null)
-const generatingPdf = ref(false)
 const listRef = ref<HTMLElement | null>(null)
 
 watch(project, (value) => {
@@ -80,11 +84,17 @@ onMounted(() => {
     draggable: '.image-item',
     onEnd: () => {
       if (!listRef.value) return
-      const filenames = [...listRef.value.querySelectorAll('.image-item')]
+      const visibleFilenames = [...listRef.value.querySelectorAll('.image-item')]
         .map(el => (el as HTMLElement).dataset.filename)
         .filter(Boolean) as string[]
-      imageOrder.value = filenames
-      saveProject({ imageOrder: filenames })
+      const visibleSet = new Set(visibleFilenames)
+      let visibleIndex = 0
+      const nextOrder = imageOrder.value.map((filename) => {
+        if (!visibleSet.has(filename)) return filename
+        return visibleFilenames[visibleIndex++] ?? filename
+      })
+      imageOrder.value = nextOrder
+      saveProject({ imageOrder: nextOrder })
     }
   })
 })
@@ -108,29 +118,19 @@ async function saveProject(patch?: { status?: string, notes?: string, imageOrder
   }
 }
 
-async function generatePdf() {
-  if (!project.value) return
-  generatingPdf.value = true
-  try {
-    const result = await api<{ pdfUrl: string }>(`/api/projects/${project.value.id}/generate-pdf`, {
-      method: 'POST'
-    })
-    await refresh()
-    toast.add({ title: 'PDF generated', color: 'success' })
-    if (result.pdfUrl) {
-      window.open(result.pdfUrl, '_blank')
-    }
-  } finally {
-    generatingPdf.value = false
-  }
+function isAiProcessed(image: ProjectThumbnail): boolean {
+  return image.aiImageEnhanced || image.aiTextExtracted
 }
 
 const orderedImages = computed(() => {
   if (!project.value) return []
   const map = new Map(project.value.thumbnails.map(t => [t.filename, t]))
-  return imageOrder.value
+  const ordered = imageOrder.value
     .map(filename => map.get(filename))
-    .filter(Boolean) as ProjectDetail['thumbnails']
+    .filter(Boolean) as ProjectThumbnail[]
+
+  if (!showAiProcessedOnly.value) return ordered
+  return ordered.filter(isAiProcessed)
 })
 
 const lightboxOpen = ref(false)
@@ -160,11 +160,12 @@ async function saveExtractedText(filename: string) {
 
   savingTextFilename.value = filename
   try {
+    const nextText = text ?? ''
     await api(`/api/projects/${project.value.id}/text/${encodeURIComponent(filename)}`, {
       method: 'PATCH',
-      body: { text }
+      body: { text: nextText }
     })
-    savedExtractedTexts.value[filename] = text
+    savedExtractedTexts.value[filename] = nextText
     toast.add({ title: 'Text saved', color: 'success' })
   } finally {
     savingTextFilename.value = null
@@ -182,7 +183,7 @@ async function saveExtractedText(filename: string) {
   <div v-else>
     <AppPageHeader
       :title="project.senderEmail"
-      description="Review processed images, add notes, and generate a test PDF."
+      description="Review processed images, add notes, and open the manuscript editor."
     />
 
     <div class="flex flex-wrap gap-3 mb-6">
@@ -201,11 +202,10 @@ async function saveExtractedText(filename: string) {
         Save notes
       </UButton>
       <UButton
-        icon="i-lucide-file-text"
-        :loading="generatingPdf"
-        @click="generatePdf"
+        :to="`/projects/${project.id}/manuscript`"
+        icon="i-lucide-book-open"
       >
-        Generate PDF
+        Manuscript Editor
       </UButton>
       <UButton
         v-if="project.hasPdf && project.pdfUrl"
@@ -235,13 +235,22 @@ async function saveExtractedText(filename: string) {
               Drag rows to reorder. Default order is by filename.
             </p>
           </div>
-          <label class="inline-flex items-center gap-2 text-sm text-muted cursor-pointer select-none">
-            <USwitch
-              v-model="showOriginals"
-              aria-label="Show original images"
-            />
-            Show originals
-          </label>
+          <div class="flex flex-wrap items-center gap-4">
+            <label class="inline-flex items-center gap-2 text-sm text-muted cursor-pointer select-none">
+              <USwitch
+                v-model="showAiProcessedOnly"
+                aria-label="Show AI-processed images only"
+              />
+              AI processed only
+            </label>
+            <label class="inline-flex items-center gap-2 text-sm text-muted cursor-pointer select-none">
+              <USwitch
+                v-model="showOriginals"
+                aria-label="Show original images"
+              />
+              Show originals
+            </label>
+          </div>
         </div>
       </template>
       <div
@@ -344,7 +353,7 @@ async function saveExtractedText(filename: string) {
           v-if="orderedImages.length === 0"
           class="text-muted"
         >
-          No processed images yet.
+          {{ showAiProcessedOnly ? 'No AI-processed images.' : 'No processed images yet.' }}
         </p>
       </div>
     </UCard>
